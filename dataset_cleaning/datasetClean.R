@@ -1,7 +1,7 @@
 # Data Preprocessing Script for Crop Recommendation Dataset
 # This script handles missing values and duplicates
 
-# Clear environment
+# Check
 rm(list = ls())
 
 # Load necessary libraries
