@@ -1,6 +1,6 @@
 rm(list = ls())
 
-data <- read.csv("Crop_recommendation.csv")
+data <- read.csv(file.path("dataset", "Crop_recommendation.csv"))
 
 head(data)
 tail(data)
@@ -50,6 +50,6 @@ library(e1071)
 
 sapply(numeric_data, skewness, na.rm = TRUE)
 
-write.csv(stats, "summary_statistics.csv", row.names = TRUE)
+write.csv(stats, file.path("dataset_stats", "summary_statistics.csv"), row.names = TRUE)
 
 

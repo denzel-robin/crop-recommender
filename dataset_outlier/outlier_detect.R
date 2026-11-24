@@ -1,12 +1,12 @@
 # -------------------------------
 # 1. Set Working Directory
 # -------------------------------
-setwd("~/Github/icrs/dataset/")   # Change this
+# Run from the repository root
 
 # -------------------------------
 # 2. Load Dataset
 # -------------------------------
-data <- read.csv("Crop_recommendation_cleaned.csv", stringsAsFactors = FALSE)
+data <- read.csv(file.path("dataset", "Crop_recommendation_cleaned.csv"), stringsAsFactors = FALSE)
 
 # -------------------------------
 # 3. Function to Print Outliers

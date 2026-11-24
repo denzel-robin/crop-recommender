@@ -1,150 +1,95 @@
 # Data Preprocessing Script for Crop Recommendation Dataset
-# This script handles missing values and duplicates
+# Handles duplicates and missing values.
+#
+# Order matters: duplicates are removed BEFORE imputation. Imputing first turns
+# copies with a blanked value into "new" rows that survive de-duplication and
+# inflate one class (previously rice ended up with 107 rows instead of 100).
+#
+# Run from the repository root:  Rscript dataset_cleaning/datasetClean.R
 
-# Check
 rm(list = ls())
 
-# Load necessary libraries
-library(dplyr)
+input_file  <- file.path("dataset", "Crop_recommendation.csv")
+output_file <- file.path("dataset", "Crop_recommendation_cleaned.csv")
+numerical_cols <- c("N", "P", "K", "temperature", "humidity", "ph", "rainfall")
 
-# # Set working directory (adjust if needed)
-setwd("/home/minhaj/Coder/ProjectR/Intelligent-Crop-Recommendation-System")
+section <- function(title) {
+  cat("========================================\n")
+  cat(title, "\n")
+  cat("========================================\n")
+}
 
 # ============================
-# 1. Load Dataset
+# 1. Load dataset
 # ============================
-cat("========================================\n")
-cat("LOADING DATASET\n")
-cat("========================================\n")
-
-data <- read.csv("Crop_recommendation.csv", stringsAsFactors = FALSE)
-
-cat("Dataset loaded successfully!\n")
-cat("Dimensions:", nrow(data), "rows x", ncol(data), "columns\n\n")
-
-# Display first few rows
-cat("First few rows of the dataset:\n")
-print(head(data))
-cat("\n")
-
-# Display structure
-cat("Dataset structure:\n")
+section("LOADING DATASET")
+data <- read.csv(input_file, stringsAsFactors = FALSE)
+rows_original <- nrow(data)
+cat("Dimensions:", rows_original, "rows x", ncol(data), "columns\n\n")
 str(data)
 cat("\n")
 
 # ============================
-# 2. MISSING VALUE HANDLING
+# 2. Exact duplicates
 # ============================
-cat("========================================\n")
-cat("MISSING VALUE ANALYSIS\n")
-cat("========================================\n")
-
-# Check for missing values
-missing_count <- colSums(is.na(data))
-missing_percentage <- round((missing_count / nrow(data)) * 100, 2)
-
-missing_summary <- data.frame(
-  Column = names(missing_count),
-  Missing_Count = missing_count,
-  Missing_Percentage = missing_percentage
-)
-
-cat("Missing values per column:\n")
-print(missing_summary)
-cat("\n")
-
-total_missing <- sum(missing_count)
-cat("Total missing values in dataset:", total_missing, "\n\n")
-
-# Handle missing values if any exist
-if (total_missing > 0) {
-  cat("Handling missing values...\n")
-  
-  # Store original data for comparison
-  data_before_missing <- data
-  
-  # For numerical columns: impute with median
-  numerical_cols <- c("N", "P", "K", "temperature", "humidity", "ph", "rainfall")
-  
-  for (col in numerical_cols) {
-    if (col %in% names(data) && sum(is.na(data[[col]])) > 0) {
-      median_value <- median(data[[col]], na.rm = TRUE)
-      data[[col]][is.na(data[[col]])] <- median_value
-      cat("  - Imputed", col, "with median:", median_value, "\n")
-    }
-  }
-  
-  # For categorical columns: impute with mode
-  if ("label" %in% names(data) && sum(is.na(data$label)) > 0) {
-    mode_value <- names(sort(table(data$label), decreasing = TRUE))[1]
-    data$label[is.na(data$label)] <- mode_value
-    cat("  - Imputed 'label' with mode:", mode_value, "\n")
-  }
-  
-  cat("\nMissing values handled successfully!\n\n")
-  
-  # Verify no missing values remain
-  remaining_missing <- sum(is.na(data))
-  cat("Remaining missing values:", remaining_missing, "\n\n")
-} else {
-  cat("No missing values found in the dataset!\n\n")
-}
-
-# ============================
-# 3. DUPLICATE HANDLING
-# ============================
-cat("========================================\n")
-cat("DUPLICATE ANALYSIS\n")
-cat("========================================\n")
-
-# Count duplicates
+section("DUPLICATE ANALYSIS")
 duplicate_count <- sum(duplicated(data))
-cat("Number of duplicate rows:", duplicate_count, "\n")
-cat("Percentage of duplicates:", round((duplicate_count / nrow(data)) * 100, 2), "%\n\n")
+cat("Exact duplicate rows:", duplicate_count,
+    sprintf("(%.2f %%)\n", 100 * duplicate_count / nrow(data)))
+data <- data[!duplicated(data), ]
+cat("Remaining rows:", nrow(data), "\n\n")
 
-# Store dimensions before removing duplicates
-rows_before <- nrow(data)
+# ============================
+# 3. Near-duplicates with missing values
+# ============================
+# A row with a missing value that matches a complete row on every other column
+# is a damaged copy of that row: drop it instead of imputing it.
+section("NEAR-DUPLICATES WITH MISSING VALUES")
+incomplete <- which(!complete.cases(data))
+complete_rows <- data[complete.cases(data), ]
+is_damaged_copy <- vapply(incomplete, function(i) {
+  known <- names(data)[!is.na(data[i, ])]
+  same <- Reduce(`&`, lapply(known, function(k) complete_rows[[k]] == data[[k]][i]))
+  any(same)
+}, logical(1))
+cat("Rows with missing values:", length(incomplete), "\n")
+cat("Of those, copies of an existing complete row:", sum(is_damaged_copy), "\n")
+if (any(is_damaged_copy)) data <- data[-incomplete[is_damaged_copy], ]
+cat("Remaining rows:", nrow(data), "\n\n")
 
-# Remove duplicates if any exist
-if (duplicate_count > 0) {
-  cat("Removing duplicate rows...\n")
-  data <- data[!duplicated(data), ]
-  rows_after <- nrow(data)
-  rows_removed <- rows_before - rows_after
-  
-  cat("Duplicates removed:", rows_removed, "\n")
-  cat("Remaining rows:", rows_after, "\n\n")
-} else {
-  cat("No duplicate rows found in the dataset!\n\n")
+# ============================
+# 4. Impute genuinely missing values
+# ============================
+# Per-crop median: crops have very different nutrient needs, so a global
+# median would pull values toward the wrong range.
+section("MISSING VALUE ANALYSIS")
+missing_summary <- data.frame(
+  Missing_Count = colSums(is.na(data)),
+  Missing_Percentage = round(100 * colSums(is.na(data)) / nrow(data), 2)
+)
+print(missing_summary)
+for (col in numerical_cols) {
+  n_missing <- sum(is.na(data[[col]]))
+  if (n_missing > 0) {
+    crop_median <- ave(data[[col]], data$label,
+                       FUN = function(v) median(v, na.rm = TRUE))
+    data[[col]][is.na(data[[col]])] <- crop_median[is.na(data[[col]])]
+    cat("  - Imputed", n_missing, "value(s) in", col, "with per-crop median\n")
+  }
 }
+cat("Remaining missing values:", sum(is.na(data)), "\n\n")
 
 # ============================
-# 4. FINAL SUMMARY
+# 5. Summary and save
 # ============================
-cat("========================================\n")
-cat("PREPROCESSING SUMMARY\n")
-cat("========================================\n")
-
-cat("Original dataset dimensions:", rows_before, "rows\n")
-cat("Final dataset dimensions:", nrow(data), "rows x", ncol(data), "columns\n")
-cat("Rows removed:", rows_before - nrow(data), "\n\n")
-
-# Display summary statistics
-cat("Summary statistics of cleaned data:\n")
-print(summary(data))
+section("PREPROCESSING SUMMARY")
+cat("Original rows:", rows_original, "\n")
+cat("Final rows:   ", nrow(data), "\n")
+cat("Rows removed: ", rows_original - nrow(data), "\n\n")
+cat("Rows per crop:\n")
+print(table(data$label))
 cat("\n")
+print(summary(data))
 
-# ============================
-# 5. SAVE CLEANED DATASET
-# ============================
-cat("========================================\n")
-cat("SAVING CLEANED DATASET\n")
-cat("========================================\n")
-
-output_file <- "Crop_recommendation_cleaned.csv"
 write.csv(data, output_file, row.names = FALSE)
-cat("Cleaned dataset saved as:", output_file, "\n")
-
-cat("\n========================================\n")
-cat("PREPROCESSING COMPLETE!\n")
-cat("========================================\n")
+cat("\nCleaned dataset saved as:", output_file, "\n")

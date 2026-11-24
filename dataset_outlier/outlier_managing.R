@@ -1,12 +1,12 @@
 # -------------------------------
 # 1. Set Working Directory
 # -------------------------------
-setwd("~/Github/icrs/dataset/")   # Change this to your folder path
+# Run from the repository root
 
 # -------------------------------
 # 2. Load Dataset
 # -------------------------------
-data <- read.csv("Crop_recommendation_cleaned.csv", stringsAsFactors = FALSE)
+data <- read.csv(file.path("dataset", "Crop_recommendation_cleaned.csv"), stringsAsFactors = FALSE)
 
 # View summary before cleaning
 cat("Summary BEFORE removing outliers:\n")
@@ -51,7 +51,7 @@ print(summary(cleaned_data))
 # -------------------------------
 # 5. Save Cleaned Dataset
 # -------------------------------
-write.csv(cleaned_data, "Outlier_removed.csv", row.names = FALSE)
+write.csv(cleaned_data, file.path("dataset", "Outlier_removed.csv"), row.names = FALSE)
 
 cat("\nOutliers removed successfully. Cleaned file saved.\n")
 
