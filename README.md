@@ -19,7 +19,27 @@ on real Indian Soil Health Card data.
 | Explainability (SHAP) | Planned |
 | Validation on real Soil Health Card data | Done |
 | Soil clustering (k-means and PCA) | Planned |
-| Shiny web app | Planned |
+| Shiny web app | Built (deployment pending) |
+
+## Web app
+
+A Shiny app ([`app/`](app/)) that combines the soil and climate model with real district crop statistics:
+
+- ranks crops from 7 soil and climate readings, with match probabilities
+- shows whether each crop is actually grown in your district, its area, and its yield compared with the state
+- warns when readings are unlike anything in the training data
+- explains each crop: which of your readings fall inside or outside its typical range
+
+![App: recommendations](docs/app_recommendations.png)
+
+Run it locally from the repository root:
+
+```sh
+Rscript app/prepare_data.R                   # builds app/data/ (model + district statistics)
+Rscript -e 'shiny::runApp("app")'
+```
+
+Deploy to shinyapps.io: see [`app/deploy.R`](app/deploy.R).
 
 ## Data
 
@@ -204,5 +224,7 @@ dataset/external/   Kaggle source files, real Soil Health Card data, real crop p
 dataset_cleaning/   de-duplication and missing-value handling
 dataset_outlier/    IQR outlier detection and impact analysis
 dataset_stats/      exploratory statistics and plots
+app/                Shiny web app and its data preparation
+docs/               screenshots
 modelling/          classifier benchmark and saved results
 ```
