@@ -14,7 +14,8 @@ on real Indian Soil Health Card data.
 |---|---|
 | Data audit, cleaning and outlier analysis | Done |
 | Model benchmark with stratified cross-validation | Done |
-| Robustness tests and explainability (SHAP) | Planned |
+| Robustness tests (noise, feature ablation) | Done |
+| Explainability (SHAP) | Planned |
 | Validation on real Soil Health Card data | Planned |
 | Soil clustering (k-means and PCA) | Planned |
 | Shiny web app | Planned |
@@ -34,7 +35,8 @@ Rscript dataset_cleaning/datasetClean.R      # -> dataset/Crop_recommendation_cl
 Rscript dataset_outlier/outlier_detect.R     # IQR outlier report
 Rscript dataset_outlier/outlier_managing.R   # -> dataset/Outlier_removed.csv (analysis only, see below)
 Rscript dataset_stats/DataExploration.R      # summary statistics
-Rscript modelling/benchmark.R                # -> modelling/results/ (about 20 min on one core)
+Rscript modelling/benchmark.R                # -> modelling/results/ (a few minutes on a multi-core machine)
+Rscript modelling/stress_test.R              # noise and feature-ablation tests (needs benchmark first)
 ```
 
 ## Phase 1 results
@@ -79,23 +81,53 @@ Other work supports this: [Sam & D'Abreo (2025)](https://arxiv.org/abs/2505.2120
 
 ### Model benchmark
 
-Each model is tuned with stratified 10-fold cross-validation on 80% of the cleaned data, then scored once on the held-out 20% (440 rows).
+Each model is tuned with 10-fold cross-validation on 80% of the cleaned data, then scored once on the held-out 20%.
+Both the split and the folds are stratified by crop, so the test set has 20 rows of each crop (440 in total).
 Script: [`modelling/benchmark.R`](modelling/benchmark.R). Results: [`modelling/results/`](modelling/results/).
 
-| Model | CV accuracy | Test accuracy | Test macro-F1 |
+| Model | CV accuracy (± SE) | Test accuracy | Test macro-F1 |
 |---|---|---|---|
-| Random Forest | 99.49% | **99.77%** | 0.998 |
-| XGBoost | 99.38% | 99.77% | 0.998 |
-| SVM (RBF kernel) | 98.52% | 99.09% | 0.990 |
-| k-NN (k = 3) | 97.61% | 98.18% | 0.982 |
-| Decision tree | 97.73% | 97.95% | 0.981 |
-| 1-NN baseline (no tuning) | 97.39% | 97.05% | 0.970 |
-| Multinomial logistic | 97.05% | 96.36% | 0.964 |
+| Random Forest | **99.55% ± 0.17** | **100%** | 1.000 |
+| XGBoost | 99.15% ± 0.23 | 99.77% | 0.998 |
+| SVM (RBF kernel) | 98.92% ± 0.18 | 97.95% | 0.980 |
+| Decision tree | 97.90% ± 0.29 | 98.86% | 0.989 |
+| 1-NN baseline (no tuning) | 97.90% ± 0.24 | 96.59% | 0.966 |
+| Multinomial logistic | 96.99% ± 0.28 | 97.50% | 0.975 |
 
-The best model gets 1 of 440 test rows wrong (it predicts jute as rice). It is only 2.7 points better than an untuned 1-nearest-neighbour model.
-By permutation importance the most useful features are humidity, K, rainfall and P; pH matters least.
+A single 440-row test set is too small to tell 99.8% from 100% apart, so the cross-validated accuracy is the better
+comparison. Random Forest beats the untuned 1-nearest-neighbour model by only 1.7 points in cross-validation. For k-NN,
+cross-validation picked k = 1, so the baseline is already the best k-NN model.
 
 ![Confusion matrix](modelling/results/confusion_matrix.png)
+
+### Stress tests
+
+Script: [`modelling/stress_test.R`](modelling/stress_test.R) (about 30 seconds).
+
+**Noise robustness.** Real soil tests and weather readings are noisy. Gaussian noise is added to the test inputs as a
+percentage of each feature's standard deviation, repeated 20 times per level.
+
+| Noise (% of SD) | Random Forest | 1-NN baseline |
+|---|---|---|
+| 0% | **100%** | 96.6% |
+| 5% | **99.1%** | 96.5% |
+| 10% | **97.4%** | 96.3% |
+| 20% | 90.6% | **94.1%** |
+| 30% | 81.0% | **89.0%** |
+| 50% | 60.0% | **73.5%** |
+
+![Noise robustness](modelling/results/noise_robustness.png)
+
+**The best model on clean data is the least robust.** Above about 10% noise, the tuned Random Forest falls behind the
+untuned 1-NN baseline, and the gap grows to 13.5 points at 50% noise. This fits the benchmark audit: each crop occupies
+a narrow, sharp-edged box of values, and the forest learns those exact edges. A leaderboard score on clean data would
+therefore pick the wrong model for field use.
+
+**Feature ablation.** The Random Forest is retrained without each feature in turn. Rainfall is the hardest to replace
+(-3.0 points). Removing P costs nothing, because P is closely tied to K in this data (correlation 0.74).
+These runs refit `ranger` directly, without the normalisation step, so the all-features score is 99.77% rather than 100%.
+
+![Feature ablation](modelling/results/feature_ablation.png)
 
 ### Exploratory analysis (raw data, before cleaning)
 

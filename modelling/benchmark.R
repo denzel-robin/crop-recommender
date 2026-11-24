@@ -13,6 +13,9 @@ suppressPackageStartupMessages({
 })
 tidymodels_prefer()
 
+# Tune models in parallel across CPU cores
+future::plan(future::multisession, workers = max(1, parallel::detectCores() - 1))
+
 set.seed(42)
 out_dir <- file.path("modelling", "results")
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
@@ -24,10 +27,12 @@ crops <- read.csv(file.path("dataset", "Crop_recommendation_cleaned.csv")) |>
   mutate(label = factor(label))
 cat("Rows:", nrow(crops), "| crops:", nlevels(crops$label), "\n")
 
-split <- initial_split(crops, prop = 0.8, strata = label)
+# pool = 0: every crop is only 4.5% of the data, and rsample would otherwise
+# merge such small strata and silently fall back to an unstratified split
+split <- initial_split(crops, prop = 0.8, strata = label, pool = 0)
 train <- training(split)
 test  <- testing(split)
-folds <- vfold_cv(train, v = 10, strata = label)
+folds <- vfold_cv(train, v = 10, strata = label, pool = 0)
 
 base_recipe <- recipe(label ~ ., data = train) |>
   step_normalize(all_numeric_predictors())
@@ -140,8 +145,9 @@ set.seed(42)
 k_grid <- c(1, 3, 5, 7, 9, 15, 21)
 k_cv_acc <- map_dbl(k_grid, function(k) knn_cv(k)$mean[1])
 best_k <- k_grid[which.max(k_cv_acc)]
-results <- bind_rows(results, knn_row("baseline_1nn", 1),
-                     knn_row(paste0("knn_k", best_k), best_k)) |>
+knn_rows <- knn_row("baseline_1nn", 1)
+if (best_k != 1) knn_rows <- bind_rows(knn_rows, knn_row(paste0("knn_k", best_k), best_k))
+results <- bind_rows(results, knn_rows) |>
   arrange(desc(test_accuracy), desc(cv_accuracy))
 
 write.csv(results, file.path(out_dir, "benchmark_results.csv"), row.names = FALSE)
