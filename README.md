@@ -13,6 +13,7 @@ on real Indian Soil Health Card data.
 | Stage | Status |
 |---|---|
 | Data audit, cleaning and outlier analysis | Done |
+| Provenance audit of the Kaggle data | Done |
 | Model benchmark with stratified cross-validation | Done |
 | Robustness tests (noise, feature ablation) | Done |
 | Explainability (SHAP) | Planned |
@@ -23,8 +24,10 @@ on real Indian Soil Health Card data.
 ## Data
 
 - **Main:** the [Kaggle Crop Recommendation dataset](https://www.kaggle.com/datasets/atharvaingle/crop-recommendation-dataset). It has 2,200 rows, 22 crops (100 each), 7 numeric features and a `label` column.
-- **Test copy with injected defects:** `dataset/Crop_recommendation.csv` has 2,714 rows. It adds 507 exact duplicate rows and 7 copies of real rows with `P` blanked out, so the cleaning stage has real problems to catch.
-- **Planned external validation:** [Soil Nutrient Dataset for Crop Advice](https://data.mendeley.com/datasets/6n3jjhncbp). It has 1,653 Soil Health Card records from Pune, Maharashtra (2016–2018), 11 soil features and 15 crops (CC BY 4.0).
+- **Test copy with injected defects:** `dataset/Crop_recommendation.csv` has 2,714 rows: the original 2,200 unchanged, plus 507 extra copies of 4 rice rows and 7 copies of rice rows with `P` blanked out. The defects give the cleaning stage real problems to catch.
+- **Source files of the Kaggle dataset** (`dataset/external/harvestify/`): the original CSV, the climate table and the per-crop fertilizer table it was built from, taken from its author's [Harvestify](https://github.com/Gladiator07/Harvestify) repository.
+- **Indian district crop production** (`dataset/external/india_crop_production.csv.gz`): 246,091 real records of area and production covering 33 states, 646 districts, 124 crops and 1997–2015.
+- **Planned external validation (manual download, see [`SOURCES.md`](dataset/external/SOURCES.md)):** [Soil Nutrient Dataset for Crop Advice](https://data.mendeley.com/datasets/6n3jjhncbp). It has 1,653 Soil Health Card records from Pune, Maharashtra (2016–2018), 11 soil features and 15 crops (CC BY 4.0).
 
 ## Running
 
@@ -35,6 +38,7 @@ Rscript dataset_cleaning/datasetClean.R      # -> dataset/Crop_recommendation_cl
 Rscript dataset_outlier/outlier_detect.R     # IQR outlier report
 Rscript dataset_outlier/outlier_managing.R   # -> dataset/Outlier_removed.csv (analysis only, see below)
 Rscript dataset_stats/DataExploration.R      # summary statistics
+Rscript modelling/provenance_audit.R         # how the Kaggle data was generated
 Rscript modelling/benchmark.R                # -> modelling/results/ (a few minutes on a multi-core machine)
 Rscript modelling/stress_test.R              # noise and feature-ablation tests (needs benchmark first)
 ```
@@ -72,11 +76,21 @@ Removing every flagged row would cut the data from 2,200 to 1,768 rows (-19.6%).
 So the outliers stay in the modelling data. `Outlier_removed.csv` is kept only to show this effect.
 Logs: [`outliers.txt`](dataset_outlier/outliers.txt), [`outlier_output.txt`](dataset_outlier/outlier_output.txt).
 
-### Benchmark audit
+### Benchmark audit: the soil values are not soil measurements
 
-Each crop's features fall in narrow bands with sharp edges. For example, K for apple and grapes is always 195–205.
-A 1-nearest-neighbour classifier with no tuning already scores **97.6%** (leave-one-out, standardised features).
-High accuracy on this dataset is therefore expected, not impressive. That is why the next stages focus on robustness and real-data validation.
+Script: [`modelling/provenance_audit.R`](modelling/provenance_audit.R). It uses the dataset author's own source files.
+
+- **Climate is copied.** All 2,200 rows' temperature, humidity and rainfall appear verbatim in `cpdata.csv`.
+- **N, P and K are random numbers around a fertilizer dose.** Each crop has one recommended dose in `FertilizerData.csv`,
+  and every row is that dose plus a random whole number: N ± 20, P −5 to +20, K ± 5. The offsets are flat, consistent with a
+  uniform distribution (chi-squared p = 0.78, 0.19, 0.20 for N, P, K).
+
+![N, P, K offsets from fertilizer dose](modelling/results/provenance_npk_offsets.png)
+
+So each crop sits in its own sharp-edged box of values (K for apple and grapes is always 195–205), and the box comes from a
+fertilizer recommendation, not from any field. A 1-nearest-neighbour classifier with no tuning already scores **97.6%**
+(leave-one-out, standardised features). High accuracy here is built into how the data was made, which is why this project
+focuses on robustness and real data.
 Other work supports this: [Sam & D'Abreo (2025)](https://arxiv.org/abs/2505.21201) report 99.96% with 10-fold CV, which drops to 78.55% with a time-based split.
 
 ### Model benchmark
@@ -158,6 +172,7 @@ These runs refit `ranger` directly, without the normalisation step, so the all-f
 
 ```text
 dataset/            raw, cleaned and outlier-removed CSVs
+dataset/external/   source files of the Kaggle data and real crop production data
 dataset_cleaning/   de-duplication and missing-value handling
 dataset_outlier/    IQR outlier detection and impact analysis
 dataset_stats/      exploratory statistics and plots
