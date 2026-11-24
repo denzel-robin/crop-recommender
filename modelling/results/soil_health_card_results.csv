@@ -1,0 +1,7 @@
+"model","hit_at_1","precision_at_3","recall_at_3","scheme"
+"Popularity (most common crops)",0.5891,0.5039,0.3644,"Grouped by soil test"
+"Village only (local popularity)",0.9457,0.8217,0.6386,"Grouped by soil test"
+"Soil only (Random Forest)",0.9147,0.8424,0.654,"Grouped by soil test"
+"Soil + village (Random Forest)",0.9457,0.8786,0.6745,"Grouped by soil test"
+"Popularity (most common crops)",0.4264,0.3359,0.1959,"Leave one village out"
+"Soil only (Random Forest)",0.2868,0.292,0.1777,"Leave one village out"

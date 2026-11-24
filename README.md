@@ -17,7 +17,7 @@ on real Indian Soil Health Card data.
 | Model benchmark with stratified cross-validation | Done |
 | Robustness tests (noise, feature ablation) | Done |
 | Explainability (SHAP) | Planned |
-| Validation on real Soil Health Card data | Planned |
+| Validation on real Soil Health Card data | Done |
 | Soil clustering (k-means and PCA) | Planned |
 | Shiny web app | Planned |
 
@@ -27,7 +27,7 @@ on real Indian Soil Health Card data.
 - **Test copy with injected defects:** `dataset/Crop_recommendation.csv` has 2,714 rows: the original 2,200 unchanged, plus 507 extra copies of 4 rice rows and 7 copies of rice rows with `P` blanked out. The defects give the cleaning stage real problems to catch.
 - **Source files of the Kaggle dataset** (`dataset/external/harvestify/`): the original CSV, the climate table and the per-crop fertilizer table it was built from, taken from its author's [Harvestify](https://github.com/Gladiator07/Harvestify) repository.
 - **Indian district crop production** (`dataset/external/india_crop_production.csv.gz`): 246,091 real records of area and production covering 33 states, 646 districts, 124 crops and 1997–2015.
-- **Planned external validation (manual download, see [`SOURCES.md`](dataset/external/SOURCES.md)):** [Soil Nutrient Dataset for Crop Advice](https://data.mendeley.com/datasets/6n3jjhncbp). It has 1,653 Soil Health Card records from Pune, Maharashtra (2016–2018), 11 soil features and 15 crops (CC BY 4.0).
+- **Real Soil Health Card data** (`dataset/external/soil_health_card/`): [Soil Nutrient Dataset for Crop Advice](https://data.mendeley.com/datasets/6n3jjhncbp) (CC BY 4.0). It has 1,651 usable rows covering 129 soil tests from 8 villages near Pune, 11 soil features (pH, organic carbon and N as numbers; the rest as low-to-high categories) and 17 advised crops.
 
 ## Running
 
@@ -41,6 +41,7 @@ Rscript dataset_stats/DataExploration.R      # summary statistics
 Rscript modelling/provenance_audit.R         # how the Kaggle data was generated
 Rscript modelling/benchmark.R                # -> modelling/results/ (a few minutes on a multi-core machine)
 Rscript modelling/stress_test.R              # noise and feature-ablation tests (needs benchmark first)
+Rscript modelling/soil_health_card.R         # validation on real Soil Health Card data
 ```
 
 ## Phase 1 results
@@ -143,6 +144,33 @@ These runs refit `ranger` directly, without the normalisation step, so the all-f
 
 ![Feature ablation](modelling/results/feature_ablation.png)
 
+### Real data: Soil Health Card records
+
+Script: [`modelling/soil_health_card.R`](modelling/soil_health_card.R) (about 10 seconds).
+
+This data has a different structure from Kaggle. Each soil test is repeated once for every crop it was advised for,
+so 1,651 rows are really **129 soil tests, each with a set of 1–7 advised crops** (median 5). The task is to rank
+suitable crops, not to predict one crop. Treating it as single-label caps accuracy at 24.8% and gives 5.8% in practice.
+Models are scored on whether the advised crops appear in their top 3, with cross-validation grouped by soil test so that
+no test is in both training and evaluation data.
+
+| Evaluation | Model | Recall@3 | Precision@3 | Top pick correct |
+|---|---|---|---|---|
+| 10-fold CV, grouped by soil test | Most common crops overall | 36.4% | 50.4% | 58.9% |
+| | Most common crops in the same village | 63.9% | 82.2% | 94.6% |
+| | Soil only (Random Forest) | 65.4% | 84.2% | 91.5% |
+| | Soil + village (Random Forest) | **67.5%** | **87.9%** | **94.6%** |
+| Leave one village out | Most common crops overall | **19.6%** | **33.6%** | **42.6%** |
+| | Soil only (Random Forest) | 17.8% | 29.2% | 28.7% |
+
+![Soil Health Card results](modelling/results/soil_health_card_results.png)
+
+**On real data, soil adds little beyond location.** Knowing only the village gets within 1.5 points of the soil model,
+and on a village the model has never seen, soil does worse than recommending the most common crops. The advice in these
+records is mostly local practice, and the soil values mainly identify the village. A useful recommender therefore has
+to combine soil with local knowledge, such as which crops are actually grown and yield well in the district, instead of
+treating soil readings as the whole answer. Kaggle's 99% does not carry over to real data.
+
 ### Exploratory analysis (raw data, before cleaning)
 
 ![Summary](dataset_stats/Summary.png)
@@ -172,7 +200,7 @@ These runs refit `ranger` directly, without the normalisation step, so the all-f
 
 ```text
 dataset/            raw, cleaned and outlier-removed CSVs
-dataset/external/   source files of the Kaggle data and real crop production data
+dataset/external/   Kaggle source files, real Soil Health Card data, real crop production data
 dataset_cleaning/   de-duplication and missing-value handling
 dataset_outlier/    IQR outlier detection and impact analysis
 dataset_stats/      exploratory statistics and plots
