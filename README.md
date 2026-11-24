@@ -13,7 +13,7 @@ on real Indian Soil Health Card data.
 | Stage | Status |
 |---|---|
 | Data audit, cleaning and outlier analysis | Done |
-| Model benchmark with stratified cross-validation | Planned |
+| Model benchmark with stratified cross-validation | Done |
 | Robustness tests and explainability (SHAP) | Planned |
 | Validation on real Soil Health Card data | Planned |
 | Soil clustering (k-means and PCA) | Planned |
@@ -34,6 +34,7 @@ Rscript dataset_cleaning/datasetClean.R      # -> dataset/Crop_recommendation_cl
 Rscript dataset_outlier/outlier_detect.R     # IQR outlier report
 Rscript dataset_outlier/outlier_managing.R   # -> dataset/Outlier_removed.csv (analysis only, see below)
 Rscript dataset_stats/DataExploration.R      # summary statistics
+Rscript modelling/benchmark.R                # -> modelling/results/ (about 20 min on one core)
 ```
 
 ## Phase 1 results
@@ -76,6 +77,26 @@ A 1-nearest-neighbour classifier with no tuning already scores **97.6%** (leave-
 High accuracy on this dataset is therefore expected, not impressive. That is why the next stages focus on robustness and real-data validation.
 Other work supports this: [Sam & D'Abreo (2025)](https://arxiv.org/abs/2505.21201) report 99.96% with 10-fold CV, which drops to 78.55% with a time-based split.
 
+### Model benchmark
+
+Each model is tuned with stratified 10-fold cross-validation on 80% of the cleaned data, then scored once on the held-out 20% (440 rows).
+Script: [`modelling/benchmark.R`](modelling/benchmark.R). Results: [`modelling/results/`](modelling/results/).
+
+| Model | CV accuracy | Test accuracy | Test macro-F1 |
+|---|---|---|---|
+| Random Forest | 99.49% | **99.77%** | 0.998 |
+| XGBoost | 99.38% | 99.77% | 0.998 |
+| SVM (RBF kernel) | 98.52% | 99.09% | 0.990 |
+| k-NN (k = 3) | 97.61% | 98.18% | 0.982 |
+| Decision tree | 97.73% | 97.95% | 0.981 |
+| 1-NN baseline (no tuning) | 97.39% | 97.05% | 0.970 |
+| Multinomial logistic | 97.05% | 96.36% | 0.964 |
+
+The best model gets 1 of 440 test rows wrong (it predicts jute as rice). It is only 2.7 points better than an untuned 1-nearest-neighbour model.
+By permutation importance the most useful features are humidity, K, rainfall and P; pH matters least.
+
+![Confusion matrix](modelling/results/confusion_matrix.png)
+
 ### Exploratory analysis (raw data, before cleaning)
 
 ![Summary](dataset_stats/Summary.png)
@@ -108,4 +129,5 @@ dataset/            raw, cleaned and outlier-removed CSVs
 dataset_cleaning/   de-duplication and missing-value handling
 dataset_outlier/    IQR outlier detection and impact analysis
 dataset_stats/      exploratory statistics and plots
+modelling/          classifier benchmark and saved results
 ```
