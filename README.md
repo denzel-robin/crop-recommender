@@ -4,6 +4,8 @@
 
 Recommends crops from soil nutrients (N, P, K, pH) and climate (temperature, humidity, rainfall), using R.
 
+**Live app: https://denzel-robin.shinyapps.io/crop-recommender/**
+
 Most projects built on the popular Kaggle crop dataset report about 99% accuracy. This project asks
 whether that number means anything. It audits the benchmark, evaluates models honestly, and tests them
 on real Indian Soil Health Card data.
@@ -19,11 +21,11 @@ on real Indian Soil Health Card data.
 | Explainability (SHAP) | Planned |
 | Validation on real Soil Health Card data | Done |
 | Soil clustering (k-means and PCA) | Planned |
-| Shiny web app | Built (deployment pending) |
+| Shiny web app | [Live](https://denzel-robin.shinyapps.io/crop-recommender/) |
 
 ## Web app
 
-A Shiny app ([`app/`](app/)) that combines the soil and climate model with real district crop statistics:
+A Shiny app ([live](https://denzel-robin.shinyapps.io/crop-recommender/), source in [`app/`](app/)) that combines the soil and climate model with real district crop statistics:
 
 - ranks crops from 7 soil and climate readings, with match probabilities
 - shows whether each crop is actually grown in your district, its area, and its yield compared with the state
