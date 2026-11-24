@@ -10,6 +10,8 @@ validates them on real Indian Soil Health Card records, and ships a web app that
 
 **Live app: https://denzel-robin.shinyapps.io/crop-recommender/**
 
+This project continues a [team course project](https://github.com/denzel-robin/Intelligent-Crop-Recommendation-System_Team_24) on the same dataset. The provenance audit, benchmark, stress tests, real-data validation and web app were all added in this repository.
+
 ## Key findings
 
 | # | Finding | Evidence |
