@@ -80,7 +80,7 @@ ui <- page_sidebar(
           tags$li("Readings that look unlike anything in the training data trigger a warning, and the scores are then less reliable."),
           tags$li("This is a portfolio project, not agronomic advice. Ask your local agricultural office before choosing a crop.")
         ),
-        p(a("Source code and full analysis", href = "https://github.com/denzel-robin/Intelligent-Crop-Recommendation-System_Team_24",
+        p(a("Source code and full analysis", href = "https://github.com/denzel-robin/crop-recommender",
             target = "_blank"))
       )
     )

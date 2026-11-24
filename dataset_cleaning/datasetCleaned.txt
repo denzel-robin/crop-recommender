@@ -29,15 +29,15 @@ Remaining rows: 2200
 ========================================
 MISSING VALUE ANALYSIS 
 ========================================
-            Missing_Count Missing_Percentage
-N                       0                  0
-P                       0                  0
-K                       0                  0
-temperature             0                  0
-humidity                0                  0
-ph                      0                  0
-rainfall                0                  0
-label                   0                  0
+            Missing_Count
+N                       0
+P                       0
+K                       0
+temperature             0
+humidity                0
+ph                      0
+rainfall                0
+label                   0
 Remaining missing values: 0 
 
 ========================================

@@ -1,14 +1,27 @@
 <!-- markdownlint-disable MD013 -->
 <!-- markdownlint-disable MD060 -->
-# Intelligent Crop Recommendation System (ICRS)
+# Crop Recommender: what 99% accuracy hides
 
-Recommends crops from soil nutrients (N, P, K, pH) and climate (temperature, humidity, rainfall), using R.
+[![CI](https://github.com/denzel-robin/crop-recommender/actions/workflows/ci.yml/badge.svg)](https://github.com/denzel-robin/crop-recommender/actions/workflows/ci.yml)
+
+Hundreds of projects train crop recommenders on the popular Kaggle Crop Recommendation dataset and report about 99%
+accuracy. This R project checks what that number means. It traces how the dataset was made, stress-tests the models,
+validates them on real Indian Soil Health Card records, and ships a web app that pairs the model with real district data.
 
 **Live app: https://denzel-robin.shinyapps.io/crop-recommender/**
 
-Most projects built on the popular Kaggle crop dataset report about 99% accuracy. This project asks
-whether that number means anything. It audits the benchmark, evaluates models honestly, and tests them
-on real Indian Soil Health Card data.
+## Key findings
+
+| # | Finding | Evidence |
+|---|---|---|
+| 1 | **The benchmark's soil values are synthetic.** N, P and K are uniform random numbers around one fertilizer dose per crop (N ± 20, P −5 to +20, K ± 5), and all climate values are copied from another table. | [Provenance audit](#benchmark-audit-the-soil-values-are-not-soil-measurements) |
+| 2 | **99% is easy, and the best model is the most fragile.** An untuned 1-nearest-neighbour model scores 97.9%, Random Forest 99.55%. With 20% input noise, Random Forest falls to 90.6% while 1-NN holds 94.1%. | [Benchmark](#model-benchmark), [stress tests](#stress-tests) |
+| 3 | **On real data, location matters more than soil.** On 129 real soil tests, soil readings beat a village-only baseline by just 1.5 points (recall@3 65.4% vs 63.9%), and lose to plain popularity on an unseen village. | [Real data](#real-data-soil-health-card-records) |
+
+So the app does not trust the soil model alone: every recommendation is checked against what is actually grown in the
+user's district and how well it yields there.
+
+![Noise robustness](modelling/results/noise_robustness.png)
 
 ## Status
 
@@ -18,10 +31,11 @@ on real Indian Soil Health Card data.
 | Provenance audit of the Kaggle data | Done |
 | Model benchmark with stratified cross-validation | Done |
 | Robustness tests (noise, feature ablation) | Done |
-| Explainability (SHAP) | Planned |
 | Validation on real Soil Health Card data | Done |
-| Soil clustering (k-means and PCA) | Planned |
 | Shiny web app | [Live](https://denzel-robin.shinyapps.io/crop-recommender/) |
+| Reproducibility (renv, tests, CI) | Done |
+| Explainability (SHAP) | Planned |
+| Soil clustering (k-means and PCA) | Planned |
 
 ## Web app
 
@@ -53,7 +67,7 @@ Deploy to shinyapps.io: see [`app/deploy.R`](app/deploy.R).
 
 ## Running
 
-Run the scripts from the repository root:
+Package versions are pinned with [renv](https://rstudio.github.io/renv/). From the repository root, run `Rscript -e 'renv::restore()'` once, then:
 
 ```sh
 Rscript dataset_cleaning/datasetClean.R      # -> dataset/Crop_recommendation_cleaned.csv
@@ -64,6 +78,7 @@ Rscript modelling/provenance_audit.R         # how the Kaggle data was generated
 Rscript modelling/benchmark.R                # -> modelling/results/ (a few minutes on a multi-core machine)
 Rscript modelling/stress_test.R              # noise and feature-ablation tests (needs benchmark first)
 Rscript modelling/soil_health_card.R         # validation on real Soil Health Card data
+Rscript tests/testthat.R                     # tests (also run by GitHub Actions on every push)
 ```
 
 ## Phase 1 results
@@ -227,6 +242,8 @@ dataset_cleaning/   de-duplication and missing-value handling
 dataset_outlier/    IQR outlier detection and impact analysis
 dataset_stats/      exploratory statistics and plots
 app/                Shiny web app and its data preparation
+R/                  shared functions (data cleaning)
+tests/              testthat tests
 docs/               screenshots
 modelling/          classifier benchmark and saved results
 ```
